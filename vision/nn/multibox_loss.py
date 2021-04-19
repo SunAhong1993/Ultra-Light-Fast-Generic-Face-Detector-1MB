@@ -1,13 +1,13 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
+import paddle
+import paddle.nn as nn
+import paddle.nn.functional as F
 from ..utils import box_utils
 
 
-class MultiboxLoss(nn.Module):
-    def __init__(self, priors, neg_pos_ratio,
-                 center_variance, size_variance, device):
+class MultiboxLoss(nn.Layer):
+
+    def __init__(self, priors, neg_pos_ratio, center_variance,
+        size_variance, device):
         """Implement SSD Multibox Loss.
 
         Basically, Multibox loss combines classification loss
@@ -30,17 +30,17 @@ class MultiboxLoss(nn.Module):
             boxes (batch_size, num_priors, 4): real boxes corresponding all the priors.
         """
         num_classes = confidence.size(2)
-        with torch.no_grad():
-            # derived from cross_entropy=sum(log(p))
-            loss = -F.log_softmax(confidence, dim=2)[:, :, 0]
-            mask = box_utils.hard_negative_mining(loss, labels, self.neg_pos_ratio)
-
+        with paddle.no_grad():
+            loss = -F.log_softmax(confidence, axis=2)[:, :, 0]
+            mask = box_utils.hard_negative_mining(loss, labels, self.
+                neg_pos_ratio)
         confidence = confidence[mask, :]
-        classification_loss = F.cross_entropy(confidence.reshape(-1, num_classes), labels[mask], reduction='sum')
+        classification_loss = F.cross_entropy(confidence.reshape(-1,
+            num_classes), labels[mask], reduction='sum')
         pos_mask = labels > 0
         predicted_locations = predicted_locations[pos_mask, :].reshape(-1, 4)
         gt_locations = gt_locations[pos_mask, :].reshape(-1, 4)
-        smooth_l1_loss = F.smooth_l1_loss(predicted_locations, gt_locations, reduction='sum')  # smooth_l1_loss
-        # smooth_l1_loss = F.mse_loss(predicted_locations, gt_locations, reduction='sum')  #l2 loss
+        smooth_l1_loss = F.smooth_l1_loss(predicted_locations, gt_locations,
+            reduction='sum')
         num_pos = gt_locations.size(0)
         return smooth_l1_loss / num_pos, classification_loss / num_pos

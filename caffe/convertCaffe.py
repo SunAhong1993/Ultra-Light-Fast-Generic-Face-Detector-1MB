@@ -1,25 +1,19 @@
+import paddle
 from __future__ import print_function
-
 import sys
-
 import caffe
 from caffe.proto import caffe_pb2
 import onnx
-
 caffe.set_mode_cpu()
 sys.path.append('../')
-from onnx2caffe._transformers import ConvAddFuser, ConstantsToInitializers
+from onnx2caffe._transformers import ConvAddFuser
+from onnx2caffe._transformers import ConstantsToInitializers
 from onnx2caffe._graph import Graph
-
 import onnx2caffe._operators as cvt
 import onnx2caffe._weightloader as wlr
 from onnx2caffe._error_utils import ErrorHandling
 from onnx import shape_inference
-
-transformers = [
-    ConstantsToInitializers(),
-    ConvAddFuser(),
-]
+transformers = [ConstantsToInitializers(), ConvAddFuser()]
 
 
 def convertToCaffe(graph, prototxt_save_path, caffe_model_save_path):
@@ -33,21 +27,18 @@ def convertToCaffe(graph, prototxt_save_path, caffe_model_save_path):
         layers.append(input_layer)
         exist_edges.append(i[0])
         graph.channel_dims[edge_name] = graph.shape_dict[edge_name][1]
-
     for id, node in enumerate(graph.nodes):
         node_name = node.name
         op_type = node.op_type
         inputs = node.inputs
         inputs_tensor = node.input_tensors
         input_non_exist_flag = False
-
         for inp in inputs:
             if inp not in exist_edges and inp not in inputs_tensor:
                 input_non_exist_flag = True
                 break
         if input_non_exist_flag:
             continue
-
         if op_type not in cvt._ONNX_NODE_REGISTRY:
             err.unsupported_op(node)
             continue
@@ -61,20 +52,15 @@ def convertToCaffe(graph, prototxt_save_path, caffe_model_save_path):
         outs = node.outputs
         for out in outs:
             exist_edges.append(out)
-
     net = caffe_pb2.NetParameter()
     for id, layer in enumerate(layers):
         layers[id] = layer._to_proto()
     net.layer.extend(layers)
-
     with open(prototxt_save_path, 'w') as f:
         print(net, file=f)
-
     caffe.set_mode_cpu()
     deploy = prototxt_save_path
-    net = caffe.Net(deploy,
-                    caffe.TEST)
-
+    net = caffe.Net(deploy, caffe.TEST)
     for id, node in enumerate(graph.nodes):
         node_name = node.name
         op_type = node.op_type
@@ -86,7 +72,6 @@ def convertToCaffe(graph, prototxt_save_path, caffe_model_save_path):
             continue
         converter_fn = wlr._ONNX_NODE_REGISTRY[op_type]
         converter_fn(net, node, graph, err)
-
     net.save(caffe_model_save_path)
     return net
 
@@ -98,13 +83,12 @@ def getGraph(onnx_path):
     graph = Graph.from_onnx(model_graph)
     graph = graph.transformed(transformers)
     graph.channel_dims = {}
-
     return graph
 
 
-if __name__ == "__main__":
-    onnx_path = "../models/onnx/version-RFB-320_simplified.onnx"
-    prototxt_path = "./RFB-320.prototxt"
-    caffemodel_path = "./RFB-320.caffemodel"
+if __name__ == '__main__':
+    onnx_path = '../models/onnx/version-RFB-320_simplified.onnx'
+    prototxt_path = './RFB-320.prototxt'
+    caffemodel_path = './RFB-320.caffemodel'
     graph = getGraph(onnx_path)
     convertToCaffe(graph, prototxt_path, caffemodel_path)

@@ -1,21 +1,27 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from x2paddle import torch2paddle
+import paddle
+import paddle.nn as nn
+import paddle.nn.functional as F
 
 
-class BasicConv(nn.Module):
+class BasicConv(nn.Layer):
 
-    def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1, groups=1, relu=True, bn=True):
+    def __init__(self, in_planes, out_planes, kernel_size, stride=1,
+        padding=0, dilation=1, groups=1, relu=True, bn=True):
         super(BasicConv, self).__init__()
         self.out_channels = out_planes
         if bn:
-            self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=False)
-            self.bn = nn.BatchNorm2d(out_planes, eps=1e-5, momentum=0.01, affine=True)
-            self.relu = nn.ReLU(inplace=True) if relu else None
+            self.conv = nn.Conv2D(in_planes, out_planes, kernel_size=
+                kernel_size, stride=stride, padding=padding, dilation=
+                dilation, groups=groups, bias_attr=False)
+            self.bn = nn.BatchNorm2D(out_planes, momentum=0.99, epsilon=1e-05)
+            self.relu = nn.ReLU() if relu else None
         else:
-            self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=True)
+            self.conv = nn.Conv2D(in_planes, out_planes, kernel_size=
+                kernel_size, stride=stride, padding=padding, dilation=
+                dilation, groups=groups, bias_attr=True)
             self.bn = None
-            self.relu = nn.ReLU(inplace=True) if relu else None
+            self.relu = nn.ReLU() if relu else None
 
     def forward(self, x):
         x = self.conv(x)
@@ -26,88 +32,82 @@ class BasicConv(nn.Module):
         return x
 
 
-class BasicRFB(nn.Module):
+class BasicRFB(nn.Layer):
 
-    def __init__(self, in_planes, out_planes, stride=1, scale=0.1, map_reduce=8, vision=1, groups=1):
+    def __init__(self, in_planes, out_planes, stride=1, scale=0.1,
+        map_reduce=8, vision=1, groups=1):
         super(BasicRFB, self).__init__()
         self.scale = scale
         self.out_channels = out_planes
         inter_planes = in_planes // map_reduce
-
-        self.branch0 = nn.Sequential(
-            BasicConv(in_planes, inter_planes, kernel_size=1, stride=1, groups=groups, relu=False),
-            BasicConv(inter_planes, 2 * inter_planes, kernel_size=(3, 3), stride=stride, padding=(1, 1), groups=groups),
-            BasicConv(2 * inter_planes, 2 * inter_planes, kernel_size=3, stride=1, padding=vision + 1, dilation=vision + 1, relu=False, groups=groups)
-        )
-        self.branch1 = nn.Sequential(
-            BasicConv(in_planes, inter_planes, kernel_size=1, stride=1, groups=groups, relu=False),
-            BasicConv(inter_planes, 2 * inter_planes, kernel_size=(3, 3), stride=stride, padding=(1, 1), groups=groups),
-            BasicConv(2 * inter_planes, 2 * inter_planes, kernel_size=3, stride=1, padding=vision + 2, dilation=vision + 2, relu=False, groups=groups)
-        )
-        self.branch2 = nn.Sequential(
-            BasicConv(in_planes, inter_planes, kernel_size=1, stride=1, groups=groups, relu=False),
-            BasicConv(inter_planes, (inter_planes // 2) * 3, kernel_size=3, stride=1, padding=1, groups=groups),
-            BasicConv((inter_planes // 2) * 3, 2 * inter_planes, kernel_size=3, stride=stride, padding=1, groups=groups),
-            BasicConv(2 * inter_planes, 2 * inter_planes, kernel_size=3, stride=1, padding=vision + 4, dilation=vision + 4, relu=False, groups=groups)
-        )
-
-        self.ConvLinear = BasicConv(6 * inter_planes, out_planes, kernel_size=1, stride=1, relu=False)
-        self.shortcut = BasicConv(in_planes, out_planes, kernel_size=1, stride=stride, relu=False)
-        self.relu = nn.ReLU(inplace=False)
+        self.branch0 = nn.Sequential(BasicConv(in_planes, inter_planes,
+            kernel_size=1, stride=1, groups=groups, relu=False), BasicConv(
+            inter_planes, 2 * inter_planes, kernel_size=(3, 3), stride=
+            stride, padding=(1, 1), groups=groups), BasicConv(2 *
+            inter_planes, 2 * inter_planes, kernel_size=3, stride=1,
+            padding=vision + 1, dilation=vision + 1, relu=False, groups=groups)
+            )
+        self.branch1 = nn.Sequential(BasicConv(in_planes, inter_planes,
+            kernel_size=1, stride=1, groups=groups, relu=False), BasicConv(
+            inter_planes, 2 * inter_planes, kernel_size=(3, 3), stride=
+            stride, padding=(1, 1), groups=groups), BasicConv(2 *
+            inter_planes, 2 * inter_planes, kernel_size=3, stride=1,
+            padding=vision + 2, dilation=vision + 2, relu=False, groups=groups)
+            )
+        self.branch2 = nn.Sequential(BasicConv(in_planes, inter_planes,
+            kernel_size=1, stride=1, groups=groups, relu=False), BasicConv(
+            inter_planes, inter_planes // 2 * 3, kernel_size=3, stride=1,
+            padding=1, groups=groups), BasicConv(inter_planes // 2 * 3, 2 *
+            inter_planes, kernel_size=3, stride=stride, padding=1, groups=
+            groups), BasicConv(2 * inter_planes, 2 * inter_planes,
+            kernel_size=3, stride=1, padding=vision + 4, dilation=vision + 
+            4, relu=False, groups=groups))
+        self.ConvLinear = BasicConv(6 * inter_planes, out_planes,
+            kernel_size=1, stride=1, relu=False)
+        self.shortcut = BasicConv(in_planes, out_planes, kernel_size=1,
+            stride=stride, relu=False)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         x0 = self.branch0(x)
         x1 = self.branch1(x)
         x2 = self.branch2(x)
-
-        out = torch.cat((x0, x1, x2), 1)
+        out = torch2paddle.concat((x0, x1, x2), 1)
         out = self.ConvLinear(out)
         short = self.shortcut(x)
         out = out * self.scale + short
         out = self.relu(out)
-
         return out
 
 
-class Mb_Tiny_RFB(nn.Module):
+class Mb_Tiny_RFB(nn.Layer):
 
     def __init__(self, num_classes=2):
         super(Mb_Tiny_RFB, self).__init__()
         self.base_channel = 8 * 2
 
         def conv_bn(inp, oup, stride):
-            return nn.Sequential(
-                nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
-                nn.BatchNorm2d(oup),
-                nn.ReLU(inplace=True)
-            )
+            return nn.Sequential(nn.Conv2D(inp, oup, 3, stride, 1,
+                bias_attr=False), nn.BatchNorm2D(oup), nn.ReLU())
 
         def conv_dw(inp, oup, stride):
-            return nn.Sequential(
-                nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
-                nn.BatchNorm2d(inp),
-                nn.ReLU(inplace=True),
-
-                nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
-                nn.ReLU(inplace=True),
-            )
-
-        self.model = nn.Sequential(
-            conv_bn(3, self.base_channel, 2),  # 160*120
-            conv_dw(self.base_channel, self.base_channel * 2, 1),
-            conv_dw(self.base_channel * 2, self.base_channel * 2, 2),  # 80*60
-            conv_dw(self.base_channel * 2, self.base_channel * 2, 1),
-            conv_dw(self.base_channel * 2, self.base_channel * 4, 2),  # 40*30
-            conv_dw(self.base_channel * 4, self.base_channel * 4, 1),
-            conv_dw(self.base_channel * 4, self.base_channel * 4, 1),
-            BasicRFB(self.base_channel * 4, self.base_channel * 4, stride=1, scale=1.0),
-            conv_dw(self.base_channel * 4, self.base_channel * 8, 2),  # 20*15
+            return nn.Sequential(nn.Conv2D(inp, inp, 3, stride, 1, groups=
+                inp, bias_attr=False), nn.BatchNorm2D(inp), nn.ReLU(), nn.
+                Conv2D(inp, oup, 1, 1, 0, bias_attr=False), nn.BatchNorm2D(
+                oup), nn.ReLU())
+        self.model = nn.Sequential(conv_bn(3, self.base_channel, 2),
+            conv_dw(self.base_channel, self.base_channel * 2, 1), conv_dw(
+            self.base_channel * 2, self.base_channel * 2, 2), conv_dw(self.
+            base_channel * 2, self.base_channel * 2, 1), conv_dw(self.
+            base_channel * 2, self.base_channel * 4, 2), conv_dw(self.
+            base_channel * 4, self.base_channel * 4, 1), conv_dw(self.
+            base_channel * 4, self.base_channel * 4, 1), BasicRFB(self.
+            base_channel * 4, self.base_channel * 4, stride=1, scale=1.0),
+            conv_dw(self.base_channel * 4, self.base_channel * 8, 2),
             conv_dw(self.base_channel * 8, self.base_channel * 8, 1),
             conv_dw(self.base_channel * 8, self.base_channel * 8, 1),
-            conv_dw(self.base_channel * 8, self.base_channel * 16, 2),  # 10*8
-            conv_dw(self.base_channel * 16, self.base_channel * 16, 1)
-        )
+            conv_dw(self.base_channel * 8, self.base_channel * 16, 2),
+            conv_dw(self.base_channel * 16, self.base_channel * 16, 1))
         self.fc = nn.Linear(1024, num_classes)
 
     def forward(self, x):
