@@ -13,6 +13,7 @@ x2paddle >= 1.2.0
 ```shell
 pip install paddlepaddle-gpu==2.0.1
 ```
+
 *** x2paddle安装: ***
 ```shell
 pip install x2paddle==1.2.0
