@@ -9,20 +9,9 @@
 
 
 ## 环境依赖
-python >= 3.6    
-paddlepaddle >= 2.0.1 或 paddlepaddle-gpu >= 2.0.1  
-x2paddle >= 1.2.0  
-
-### 安装
-paddlepaddle安装:
-```shell
-pip install paddlepaddle-gpu==2.0.1
-```
-  
-x2paddle安装:
-```shell
-pip install x2paddle==1.2.0
-```
+* [python 3.5+](https://www.continuum.io/downloads)
+* [paddlepaddle 或 paddlepaddle-gpu 2.0.1+](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/install/pip)
+* [x2Paddle 1.2+](https://github.com/PaddlePaddle/X2Paddle)
 
 
 ## 生成VOC格式训练数据集以及训练流程
