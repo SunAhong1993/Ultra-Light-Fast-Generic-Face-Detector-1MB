@@ -1,6 +1,6 @@
 
 # Ultra-Light-Fast-Generic-Face-Detector-1MB 
-该代码由论文的[PyTorch官方实现](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)通过[X2Paddle](https://github.com/PaddlePaddle/X2Paddle)转换而来，转换过程参加[教程](https://github.com/SunAhong1993/X2Paddle/blob/code_convert_last/docs/pytorch_project_convertor/demo.md#ultra-light-fast-generic-face-detector)。  
+该代码由论文的[PyTorch官方实现](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)通过[X2Paddle](https://github.com/PaddlePaddle/X2Paddle)转换而来，转换过程参考[教程](https://github.com/SunAhong1993/X2Paddle/blob/code_convert_last/docs/pytorch_project_convertor/demo.md#ultra-light-fast-generic-face-detector)。  
 
 ## 简介
 ![img1](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB/blob/master/readme_imgs/27.jpg)
