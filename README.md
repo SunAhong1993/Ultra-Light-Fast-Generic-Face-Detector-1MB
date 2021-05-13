@@ -10,7 +10,7 @@
 
 ## 环境依赖
 python >= 3.6    
-paddlepaddle >= 2.0.1 或 paddlepaddle-gpy >= 2.0.1  
+paddlepaddle >= 2.0.1 或 paddlepaddle-gpu >= 2.0.1  
 x2paddle >= 1.2.0  
 
 ### 安装
