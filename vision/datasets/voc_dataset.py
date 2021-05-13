@@ -53,7 +53,7 @@ class VOCDataset(paddle.io.Dataset):
             image, boxes, labels = self.transform(image, boxes, labels)
         if self.target_transform:
             boxes, labels = self.target_transform(boxes, labels)
-        return image, boxes, labels
+        return image.numpy(), boxes.numpy(), labels.numpy()
 
     def get_image(self, index):
         image_id = self.ids[index]
